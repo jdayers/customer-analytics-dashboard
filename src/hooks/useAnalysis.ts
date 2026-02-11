@@ -6,6 +6,7 @@ import { generateMockAnalysis, delay } from '@/lib/mockData';
 import { AnalysisResult } from '@/lib/types';
 import * as Sentry from '@sentry/nextjs';
 import { sentryMetrics, sentryLogger } from '@/lib/sentryMetrics';
+import { captureErrorWithContext, trackPerformance } from '@/lib/sentryContext';
 
 // Request counter to simulate failures every third request
 let requestCounter = 0;
@@ -105,22 +106,23 @@ export function useAnalysis() {
           },
         });
 
-        // Explicitly capture exception with full context
+        // Explicitly capture exception with enhanced context for Seer
         const error = new Error('Analysis service temporarily unavailable. Please try again.');
-        Sentry.captureException(error, {
-          tags: {
+        captureErrorWithContext(
+          error,
+          {
             feature: 'url-analysis',
-            error_type: 'simulated_failure',
+            action: 'simulate_failure',
+            url,
+            timestamp: new Date().toISOString(),
           },
-          contexts: {
-            analysis: {
-              url,
-              requestCount: requestCounter,
-              pattern: 'every_third_request',
-            },
-          },
-          level: 'error',
-        });
+          {
+            requestCount: requestCounter,
+            pattern: 'every_third_request',
+            isSimulated: true,
+            errorType: 'simulated_failure',
+          }
+        );
 
         // Track simulated failure metric
         sentryMetrics.increment('analysis.simulated_failure', 1, {
@@ -190,24 +192,23 @@ export function useAnalysis() {
         },
       });
 
-      // Explicitly capture exception with comprehensive context
-      Sentry.captureException(err, {
-        tags: {
+      // Capture with enhanced context for better Seer analysis
+      captureErrorWithContext(
+        err instanceof Error ? err : new Error(String(err)),
+        {
           feature: 'url-analysis',
-          url: url,
-          error_type: err instanceof Error ? err.name : 'unknown',
+          action: 'analyze_url',
+          url,
+          timestamp: new Date().toISOString(),
         },
-        contexts: {
-          analysis: {
-            url,
-            requestCount: requestCounter,
-            duration,
-            phase: 'analysis',
-          },
-        },
-        level: 'error',
-        fingerprint: ['analysis-error', url],
-      });
+        {
+          requestCount: requestCounter,
+          duration,
+          phase: 'analysis',
+          errorType: err instanceof Error ? err.name : 'unknown',
+          errorMessage: errorMessage,
+        }
+      );
 
       // Track failure metrics
       sentryMetrics.increment('analysis.failed', 1, {
