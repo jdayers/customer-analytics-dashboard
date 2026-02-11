@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAnalysisContext } from '@/context/AnalysisContext';
 import * as Sentry from '@sentry/nextjs';
+import { sentryMetrics, sentryLogger } from '@/lib/sentryMetrics';
 
 export function SearchBar() {
   const [url, setUrl] = useState('');
@@ -18,7 +19,7 @@ export function SearchBar() {
     const trimmedUrl = url.trim();
 
     // Log search submission
-    Sentry.logger.info('Search form submitted', {
+    sentryLogger.info('Search form submitted', {
       extra: {
         url: trimmedUrl,
         urlLength: trimmedUrl.length,
@@ -27,7 +28,7 @@ export function SearchBar() {
     });
 
     // Track search metric
-    Sentry.metrics.increment('search.submitted', 1, {
+    sentryMetrics.increment('search.submitted', 1, {
       tags: {
         has_protocol: trimmedUrl.startsWith('http') ? 'yes' : 'no',
       },
@@ -40,16 +41,16 @@ export function SearchBar() {
       setUrl('');
 
       // Track successful search
-      Sentry.metrics.increment('search.completed', 1, {
+      sentryMetrics.increment('search.completed', 1, {
         tags: { status: 'success' },
       });
     } catch (err) {
       // Track failed search
-      Sentry.metrics.increment('search.completed', 1, {
+      sentryMetrics.increment('search.completed', 1, {
         tags: { status: 'failed' },
       });
 
-      Sentry.logger.error('Search submission failed', {
+      sentryLogger.error('Search submission failed', {
         extra: {
           url: trimmedUrl,
           error: err instanceof Error ? err.message : 'unknown',
@@ -63,7 +64,7 @@ export function SearchBar() {
 
     // Track input interaction (throttled by metrics)
     if (e.target.value.length > 0 && e.target.value.length % 10 === 0) {
-      Sentry.metrics.gauge('search.input_length', e.target.value.length, {
+      sentryMetrics.gauge('search.input_length', e.target.value.length, {
         tags: { milestone: 'every_10_chars' },
       });
     }

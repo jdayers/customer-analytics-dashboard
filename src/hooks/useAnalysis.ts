@@ -5,6 +5,7 @@ import { validateUrl } from '@/lib/urlValidator';
 import { generateMockAnalysis, delay } from '@/lib/mockData';
 import { AnalysisResult } from '@/lib/types';
 import * as Sentry from '@sentry/nextjs';
+import { sentryMetrics, sentryLogger } from '@/lib/sentryMetrics';
 
 // Request counter to simulate failures every third request
 let requestCounter = 0;
@@ -19,7 +20,7 @@ export function useAnalysis() {
     setError(null);
 
     // Log analysis start
-    Sentry.logger.info('URL analysis started', {
+    sentryLogger.info('URL analysis started', {
       extra: {
         url,
         requestCount: requestCounter + 1,
@@ -27,7 +28,7 @@ export function useAnalysis() {
     });
 
     // Increment analysis request counter metric
-    Sentry.metrics.increment('analysis.request', 1, {
+    sentryMetrics.increment('analysis.request', 1, {
       tags: { status: 'started' },
     });
 
@@ -36,7 +37,7 @@ export function useAnalysis() {
       const validation = validateUrl(url);
       if (!validation.isValid) {
         // Log validation failure
-        Sentry.logger.warn('URL validation failed', {
+        sentryLogger.warn('URL validation failed', {
           extra: {
             url,
             error: validation.error,
@@ -44,28 +45,59 @@ export function useAnalysis() {
         });
 
         // Track validation failure metric
-        Sentry.metrics.increment('analysis.validation_failed', 1, {
+        sentryMetrics.increment('analysis.validation_failed', 1, {
           tags: { reason: 'invalid_url' },
         });
 
         throw new Error(validation.error);
       }
 
-      // Simulate API delay (300-800ms for realistic feel)
-      const delayMs = Math.random() * 500 + 300;
+      // Simulate API delay with 80% chance of being wicked slow
+      const isSlowRequest = Math.random() < 0.8; // 80% chance
+      let delayMs: number;
+
+      if (isSlowRequest) {
+        // Wicked slow: 5-10 seconds
+        delayMs = Math.random() * 5000 + 5000;
+
+        console.warn(
+          `🐌 SLOW REQUEST TRIGGERED! This request will take ${(delayMs / 1000).toFixed(1)}s (80% chance)`
+        );
+
+        sentryLogger.warn('Slow request detected', {
+          extra: {
+            url,
+            delayMs,
+            slowRequestPattern: '80_percent_random',
+          },
+        });
+
+        // Track slow request metric
+        sentryMetrics.increment('analysis.slow_request', 1, {
+          tags: { pattern: 'random_80_percent' },
+        });
+      } else {
+        // Normal speed: 300-800ms
+        delayMs = Math.random() * 500 + 300;
+        console.log(`⚡ Normal request speed: ${delayMs.toFixed(0)}ms`);
+      }
+
       await delay(delayMs);
 
       // Track API delay metric
-      Sentry.metrics.distribution('analysis.api_delay_ms', delayMs, {
+      sentryMetrics.distribution('analysis.api_delay_ms', delayMs, {
         unit: 'millisecond',
-        tags: { type: 'mock_delay' },
+        tags: {
+          type: isSlowRequest ? 'slow_request' : 'normal_request',
+          is_slow: isSlowRequest ? 'yes' : 'no',
+        },
       });
 
       // Increment counter and fail every third request
       requestCounter++;
       if (requestCounter % 3 === 0) {
         // Log simulated failure
-        Sentry.logger.error('Simulated analysis service failure', {
+        sentryLogger.error('Simulated analysis service failure', {
           extra: {
             url,
             requestCount: requestCounter,
@@ -91,7 +123,7 @@ export function useAnalysis() {
         });
 
         // Track simulated failure metric
-        Sentry.metrics.increment('analysis.simulated_failure', 1, {
+        sentryMetrics.increment('analysis.simulated_failure', 1, {
           tags: { pattern: 'third_request' },
         });
 
@@ -104,7 +136,7 @@ export function useAnalysis() {
       const duration = Date.now() - startTime;
 
       // Log successful analysis
-      Sentry.logger.info('URL analysis completed successfully', {
+      sentryLogger.info('URL analysis completed successfully', {
         extra: {
           url: result.url,
           companyName: result.firmographics.companyName,
@@ -118,25 +150,25 @@ export function useAnalysis() {
       });
 
       // Track success metrics
-      Sentry.metrics.increment('analysis.success', 1, {
+      sentryMetrics.increment('analysis.success', 1, {
         tags: { status: 'completed' },
       });
 
-      Sentry.metrics.distribution('analysis.duration_ms', duration, {
+      sentryMetrics.distribution('analysis.duration_ms', duration, {
         unit: 'millisecond',
         tags: { status: 'success' },
       });
 
       // Track business metrics
-      Sentry.metrics.gauge('analysis.yoy_growth', result.metrics.yoyGrowth, {
+      sentryMetrics.gauge('analysis.yoy_growth', result.metrics.yoyGrowth, {
         tags: { company: result.firmographics.companyName },
       });
 
-      Sentry.metrics.gauge('analysis.nrr', result.metrics.nrr, {
+      sentryMetrics.gauge('analysis.nrr', result.metrics.nrr, {
         tags: { company: result.firmographics.companyName },
       });
 
-      Sentry.metrics.gauge('analysis.dau', result.metrics.dau, {
+      sentryMetrics.gauge('analysis.dau', result.metrics.dau, {
         tags: { company: result.firmographics.companyName },
       });
 
@@ -149,7 +181,7 @@ export function useAnalysis() {
       setIsLoading(false);
 
       // Log error with full context
-      Sentry.logger.error('URL analysis failed', {
+      sentryLogger.error('URL analysis failed', {
         extra: {
           url,
           error: errorMessage,
@@ -178,13 +210,13 @@ export function useAnalysis() {
       });
 
       // Track failure metrics
-      Sentry.metrics.increment('analysis.failed', 1, {
+      sentryMetrics.increment('analysis.failed', 1, {
         tags: {
           error_type: err instanceof Error ? err.name : 'unknown',
         },
       });
 
-      Sentry.metrics.distribution('analysis.failure_duration_ms', duration, {
+      sentryMetrics.distribution('analysis.failure_duration_ms', duration, {
         unit: 'millisecond',
         tags: { status: 'failed' },
       });

@@ -12,6 +12,7 @@ import {
   Building2
 } from 'lucide-react';
 import * as Sentry from '@sentry/nextjs';
+import { sentryMetrics, sentryLogger } from '@/lib/sentryMetrics';
 
 interface MetricsGridProps {
   metrics: CustomerMetrics;
@@ -20,7 +21,7 @@ interface MetricsGridProps {
 export function MetricsGrid({ metrics }: MetricsGridProps) {
   // Log metrics display
   useEffect(() => {
-    Sentry.logger.info('Metrics grid displayed', {
+    sentryLogger.info('Metrics grid displayed', {
       extra: {
         metrics: {
           yoyGrowth: metrics.yoyGrowth,
@@ -34,23 +35,23 @@ export function MetricsGrid({ metrics }: MetricsGridProps) {
     });
 
     // Track metric value distributions
-    Sentry.metrics.distribution('metrics.yoy_growth_displayed', metrics.yoyGrowth, {
+    sentryMetrics.distribution('metrics.yoy_growth_displayed', metrics.yoyGrowth, {
       tags: { component: 'metrics_grid' },
     });
 
-    Sentry.metrics.distribution('metrics.nrr_displayed', metrics.nrr, {
+    sentryMetrics.distribution('metrics.nrr_displayed', metrics.nrr, {
       tags: { component: 'metrics_grid' },
     });
 
-    Sentry.metrics.distribution('metrics.dau_displayed', metrics.dau, {
+    sentryMetrics.distribution('metrics.dau_displayed', metrics.dau, {
       tags: { component: 'metrics_grid' },
     });
 
-    Sentry.metrics.distribution('metrics.csat_displayed', metrics.csat, {
+    sentryMetrics.distribution('metrics.csat_displayed', metrics.csat, {
       tags: { component: 'metrics_grid' },
     });
 
-    Sentry.metrics.distribution('metrics.nps_displayed', metrics.nps, {
+    sentryMetrics.distribution('metrics.nps_displayed', metrics.nps, {
       tags: { component: 'metrics_grid' },
     });
 
@@ -62,11 +63,11 @@ export function MetricsGrid({ metrics }: MetricsGridProps) {
       (metrics.nps > 30 ? 1 : 0)
     ) / 4 * 100;
 
-    Sentry.metrics.gauge('metrics.health_score', healthScore, {
+    sentryMetrics.gauge('metrics.health_score', healthScore, {
       tags: { component: 'metrics_grid' },
     });
 
-    Sentry.logger.debug('Metrics health score calculated', {
+    sentryLogger.debug('Metrics health score calculated', {
       extra: { healthScore: healthScore.toFixed(2) + '%' },
     });
   }, [metrics]);

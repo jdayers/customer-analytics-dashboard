@@ -11,20 +11,19 @@ Sentry.init({
   tracesSampleRate: 1.0,
 
   // Setting this option to true will print useful information to the console while you're setting up Sentry.
-  debug: false,
+  debug: true, // Enable debug mode to see Sentry logs
 
+  // Replay settings (may not be available in all SDK versions)
   replaysOnErrorSampleRate: 1.0,
-
-  // This sets the sample rate to be 10%. You may want this to be 100% while
-  // in development and sample at a lower rate in production
   replaysSessionSampleRate: 0.1,
 
-  // You can remove this option if you're not planning to use the Sentry Session Replay feature:
-  integrations: [
-    Sentry.replayIntegration({
-      // Additional Replay configuration goes in here, for example:
-      maskAllText: true,
-      blockAllMedia: true,
-    }),
-  ],
+  // Enable custom metrics
+  enableMetrics: true,
+
+  // Initialize with default integrations
+  // Replay integration may not be available in this SDK version
+  integrations: function(integrations) {
+    // Filter out problematic integrations if needed
+    return integrations.filter(integration => integration.name !== 'Replay');
+  },
 });

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AnalysisProvider } from "@/context/AnalysisContext";
+import { SentryClientInit } from "@/components/SentryClientInit";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <SentryClientInit />
         <AnalysisProvider>
           {children}
         </AnalysisProvider>

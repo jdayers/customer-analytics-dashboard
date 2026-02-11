@@ -6,11 +6,12 @@ import { SearchBar } from "@/components/dashboard/SearchBar";
 import { AnalysisView } from "@/components/dashboard/AnalysisView";
 import { SentryTestButton } from "@/components/dashboard/SentryTestButton";
 import * as Sentry from '@sentry/nextjs';
+import { sentryMetrics, sentryLogger } from '@/lib/sentryMetrics';
 
 export default function Home() {
   useEffect(() => {
     // Log page view
-    Sentry.logger.info('Dashboard page viewed', {
+    sentryLogger.info('Dashboard page viewed', {
       extra: {
         timestamp: new Date().toISOString(),
         userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : 'unknown',
@@ -18,7 +19,7 @@ export default function Home() {
     });
 
     // Track page view metric
-    Sentry.metrics.increment('page.view', 1, {
+    sentryMetrics.increment('page.view', 1, {
       tags: {
         page: 'dashboard',
         route: '/',
@@ -26,7 +27,7 @@ export default function Home() {
     });
 
     // Track session start
-    Sentry.metrics.increment('session.started', 1, {
+    sentryMetrics.increment('session.started', 1, {
       tags: {
         page: 'dashboard',
       },
@@ -34,7 +35,7 @@ export default function Home() {
 
     // Log viewport information
     if (typeof window !== 'undefined') {
-      Sentry.logger.debug('Viewport information', {
+      sentryLogger.debug('Viewport information', {
         extra: {
           width: window.innerWidth,
           height: window.innerHeight,
@@ -42,7 +43,7 @@ export default function Home() {
         },
       });
 
-      Sentry.metrics.gauge('viewport.width', window.innerWidth, {
+      sentryMetrics.gauge('viewport.width', window.innerWidth, {
         tags: { page: 'dashboard' },
       });
     }

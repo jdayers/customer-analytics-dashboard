@@ -6,10 +6,17 @@ import { formatDistanceToNow } from 'date-fns';
 import { CheckCircle2, XCircle, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import * as Sentry from '@sentry/nextjs';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { sentryMetrics, sentryLogger } from '@/lib/sentryMetrics';
 
 export function HistoryList() {
   const { history, selectHistoryItem, currentAnalysis } = useAnalysisContext();
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Only render timestamps after client-side mount to avoid hydration mismatch
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     // Log history list render with statistics
@@ -17,7 +24,7 @@ export function HistoryList() {
       const successCount = history.filter(h => h.status === 'success').length;
       const errorCount = history.filter(h => h.status === 'error').length;
 
-      Sentry.logger.debug('History list rendered', {
+      sentryLogger.debug('History list rendered', {
         extra: {
           totalItems: history.length,
           successCount,
@@ -27,18 +34,18 @@ export function HistoryList() {
       });
 
       // Track history statistics
-      Sentry.metrics.gauge('history.success_count', successCount, {
+      sentryMetrics.gauge('history.success_count', successCount, {
         tags: { component: 'history_list' },
       });
 
-      Sentry.metrics.gauge('history.error_count', errorCount, {
+      sentryMetrics.gauge('history.error_count', errorCount, {
         tags: { component: 'history_list' },
       });
     }
   }, [history.length]);
 
   if (history.length === 0) {
-    Sentry.logger.info('History list empty', {
+    sentryLogger.info('History list empty', {
       extra: { component: 'history_list' },
     });
 
@@ -52,7 +59,7 @@ export function HistoryList() {
   }
 
   const handleClick = (item: HistoryItem) => {
-    Sentry.logger.info('History item clicked', {
+    sentryLogger.info('History item clicked', {
       extra: {
         url: item.url,
         status: item.status,
@@ -62,7 +69,7 @@ export function HistoryList() {
     });
 
     // Track history item click metric
-    Sentry.metrics.increment('history.item_clicked', 1, {
+    sentryMetrics.increment('history.item_clicked', 1, {
       tags: {
         status: item.status,
         is_active: currentAnalysis?.url === item.url ? 'yes' : 'no',
@@ -102,8 +109,8 @@ export function HistoryList() {
                 <p className="text-xs text-muted-foreground truncate">
                   {item.url}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {formatDistanceToNow(new Date(item.timestamp), { addSuffix: true })}
+                <p className="text-xs text-muted-foreground mt-1" suppressHydrationWarning>
+                  {isMounted ? formatDistanceToNow(new Date(item.timestamp), { addSuffix: true }) : 'Just now'}
                 </p>
               </div>
               {isActive && (

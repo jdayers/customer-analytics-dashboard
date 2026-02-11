@@ -5,6 +5,7 @@ import { AnalysisResult, HistoryItem } from '@/lib/types';
 import { useAnalysis } from '@/hooks/useAnalysis';
 import { useQueryHistory } from '@/hooks/useQueryHistory';
 import * as Sentry from '@sentry/nextjs';
+import { sentryMetrics, sentryLogger } from '@/lib/sentryMetrics';
 
 interface AnalysisContextType {
   // Current analysis state
@@ -31,7 +32,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
 
   // Log context initialization
   useEffect(() => {
-    Sentry.logger.info('AnalysisContext initialized', {
+    sentryLogger.info('AnalysisContext initialized', {
       extra: {
         historyCount: history.length,
         hasCurrentAnalysis: !!currentAnalysis,
@@ -39,14 +40,14 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     });
 
     // Track history size metric
-    Sentry.metrics.gauge('history.size', history.length, {
+    sentryMetrics.gauge('history.size', history.length, {
       tags: { context: 'initialization' },
     });
   }, []);
 
   // Analyze a new URL
   const analyzeUrl = async (url: string) => {
-    Sentry.logger.info('Starting new URL analysis from context', {
+    sentryLogger.info('Starting new URL analysis from context', {
       extra: { url },
     });
 
@@ -65,7 +66,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       addToHistory(historyItem);
 
       // Log successful addition to history
-      Sentry.logger.info('Analysis added to history', {
+      sentryLogger.info('Analysis added to history', {
         extra: {
           url: result.url,
           companyName: result.firmographics.companyName,
@@ -74,12 +75,12 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       });
 
       // Track history addition metric
-      Sentry.metrics.increment('history.item_added', 1, {
+      sentryMetrics.increment('history.item_added', 1, {
         tags: { status: 'success' },
       });
 
       // Update history size gauge
-      Sentry.metrics.gauge('history.size', history.length + 1, {
+      sentryMetrics.gauge('history.size', history.length + 1, {
         tags: { action: 'added' },
       });
     } catch (err) {
@@ -95,7 +96,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       addToHistory(failedHistoryItem);
 
       // Log error addition to history
-      Sentry.logger.warn('Failed analysis added to history', {
+      sentryLogger.warn('Failed analysis added to history', {
         extra: {
           url,
           error: errorMessage,
@@ -104,7 +105,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
       });
 
       // Track failed history addition
-      Sentry.metrics.increment('history.item_added', 1, {
+      sentryMetrics.increment('history.item_added', 1, {
         tags: { status: 'error' },
       });
 
@@ -114,7 +115,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
 
   // Select an item from history
   const selectHistoryItem = (item: HistoryItem) => {
-    Sentry.logger.info('History item selected', {
+    sentryLogger.info('History item selected', {
       extra: {
         url: item.url,
         status: item.status,
@@ -124,7 +125,7 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
     });
 
     // Track history selection metric
-    Sentry.metrics.increment('history.item_selected', 1, {
+    sentryMetrics.increment('history.item_selected', 1, {
       tags: {
         status: item.status,
         source: 'sidebar',
@@ -163,19 +164,19 @@ export function AnalysisProvider({ children }: { children: ReactNode }) {
   const clearHistory = () => {
     const previousSize = history.length;
 
-    Sentry.logger.warn('History cleared', {
+    sentryLogger.warn('History cleared', {
       extra: {
         itemsCleared: previousSize,
       },
     });
 
     // Track history clear metric
-    Sentry.metrics.increment('history.cleared', 1, {
+    sentryMetrics.increment('history.cleared', 1, {
       tags: { items_cleared: previousSize.toString() },
     });
 
     // Update history size gauge
-    Sentry.metrics.gauge('history.size', 0, {
+    sentryMetrics.gauge('history.size', 0, {
       tags: { action: 'cleared' },
     });
 
